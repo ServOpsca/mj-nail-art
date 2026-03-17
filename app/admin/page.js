@@ -9,7 +9,6 @@ import {
   Loader2, 
   Plus 
 } from 'lucide-react';
-import imageCompression from 'browser-image-compression';
 
 export default function AdminPage() {
   const [user, setUser] = useState(null)
