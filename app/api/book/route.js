@@ -1,54 +1,54 @@
 import { Resend } from 'resend';
+// We climb up 3 levels (../../../) to reach the root, then go into /lib/
+import { supabase } from '../../../lib/supabase'; 
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req) {
   try {
     const { name, email, service, date } = await req.json();
+    const formattedDate = new Date(date).toLocaleString();
 
-    // 1. Send Notification to YOU (The Admin)
+    // 1. Save the booking to your Supabase Database
+    // This ensures you have a backup if the email fails
+    const { error: dbError } = await supabase
+      .from('bookings') // Ensure you have a 'bookings' table in Supabase
+      .insert([{ 
+        client_name: name, 
+        email: email, 
+        service: service, 
+        booking_date: date 
+      }]);
+
+    if (dbError) console.error("Database Save Error:", dbError);
+
+    // 2. Send Notification to YOU
     await resend.emails.send({
       from: 'MJ Nail Art <onboarding@resend.dev>',
-      to: ['your-email@gmail.com'], // Replace with your actual email
+      to: ['your-email@gmail.com'], // Put your real email here
       subject: `✨ New Booking: ${service}`,
       html: `
-        <div style="font-family: sans-serif; color: #333;">
+        <div style="font-family: sans-serif;">
           <h2>New Booking Request</h2>
           <p><strong>Client:</strong> ${name}</p>
           <p><strong>Service:</strong> ${service}</p>
-          <p><strong>Preferred Date:</strong> ${date}</p>
-          <p><strong>Contact:</strong> ${email}</p>
+          <p><strong>Date:</strong> ${formattedDate}</p>
         </div>
       `,
     });
 
-    // 2. Send "Thank You" to the CLIENT
-    const { data, error } = await resend.emails.send({
+    // 3. Send Confirmation to CLIENT
+    await resend.emails.send({
       from: 'MJ Nail Art <onboarding@resend.dev>',
       to: [email],
-      subject: 'Your MJ Nail Art Booking Request',
-      html: `
-        <div style="font-family: 'Helvetica', sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 40px; border-radius: 10px;">
-          <h1 style="font-weight: 100; letter-spacing: 4px; text-transform: uppercase; text-align: center;">MJ Nail Art</h1>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
-          <p>Hi ${name},</p>
-          <p>Thank you for reaching out! I've received your booking request for <strong>${service}</strong>.</p>
-          <p>I am currently reviewing my schedule for <strong>${new Date(date).toLocaleString()}</strong> and will get back to you shortly via this email to confirm your appointment.</p>
-          
-          <div style="background-color: #faf9f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 0; font-size: 14px; color: #888;">Note: This is a request only. Your appointment is not confirmed until you receive a follow-up message from me.</p>
-          </div>
-
-          <p>In the meantime, feel free to browse my latest work on Instagram.</p>
-          <p>Stay polished,<br /><strong>MJ</strong></p>
-        </div>
-      `,
+      subject: 'Confirmation: Your MJ Nail Art Request',
+      html: `<h1>Hi ${name},</h1><p>I've received your request for ${service} on ${formattedDate}. I'll text or email you shortly to confirm!</p>`,
     });
 
-    if (error) return Response.json({ error }, { status: 400 });
-    return Response.json({ message: "Emails sent successfully", data });
+    return Response.json({ success: true });
 
   } catch (err) {
+    console.error("API Error:", err);
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
