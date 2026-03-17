@@ -1,7 +1,13 @@
-'use client'
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import { LogIn, Upload, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase'; // We climb two levels to get out of /app/admin/
+import imageCompression from 'browser-image-compression';
+import { 
+  LogIn, 
+  Upload, 
+  Image as ImageIcon, 
+  Loader2, 
+  Plus 
+} from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 
 export default function AdminPage() {

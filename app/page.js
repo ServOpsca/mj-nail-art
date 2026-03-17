@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react';
-import { Moon, Sun, Star } from 'lucide-react'; // Add these icons
+import { supabase } from '@/lib/supabase';
+// ADD "Camera" (and any other icons you are using) to this list:
+import { Camera, Calendar, Instagram, Send, Moon, Sun, Star, Loader2 } from 'lucide-react';
 
 export default function LandingPage() {
   const [darkMode, setDarkMode] = useState(false);
