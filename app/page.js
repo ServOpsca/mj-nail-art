@@ -6,7 +6,8 @@ import { Camera, Calendar, Instagram, Send, Moon, Sun, Star, Loader2 } from 'luc
 
 export default function LandingPage() {
   const [darkMode, setDarkMode] = useState(false);
-
+  const [loading, setLoading] = useState(true);
+  
   // Toggle function
   const toggleDark = () => {
     setDarkMode(!darkMode);
