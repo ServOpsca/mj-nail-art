@@ -1,3 +1,4 @@
+'use client'
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase'; // We climb two levels to get out of /app/admin/
 import imageCompression from 'browser-image-compression';
