@@ -1,78 +1,61 @@
-import { Resend } from 'resend';
-import { supabase } from '../../../lib/supabase';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Uses Google Gemini Flash — FREE tier: 1,500 requests/day, no credit card needed
+// Get your free key at: https://aistudio.google.com/apikey
 
 export async function POST(req) {
   try {
-    // ✅ Next.js App Router automatically parses JSON — no Content-Type workaround needed here.
-    // The fix is on the CLIENT side (page.js): fetch must send Content-Type: application/json
-    const { name, surname, email, service, date, phone, notes } = await req.json();
-    const clientName = `${name} ${surname || ''}`.trim();
-    const formattedDate = date ? new Date(date).toLocaleString('en-CA', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    }) : 'Date not specified';
+    const { occasion, style, shape, length, extra } = await req.json();
 
-    // 1. Save booking to Supabase
-    const { error: dbError } = await supabase
-      .from('bookings')
-      .insert([{
-        client_name: clientName,
-        email,
-        phone: phone || null,
-        service,
-        booking_date: date || null,
-        notes: notes || null,
-      }]);
+    if (!occasion && !style) {
+      return Response.json({ error: 'Please select at least an occasion or aesthetic.' }, { status: 400 });
+    }
 
-    if (dbError) console.error('Database Save Error:', dbError);
+    const userMessage = [
+      occasion && `Occasion: ${occasion}`,
+      style    && `Aesthetic preference: ${style}`,
+      shape    && `Nail shape: ${shape}`,
+      length   && `Length preference: ${length}`,
+      extra    && `Additional details: ${extra}`,
+    ].filter(Boolean).join('\n');
 
-    // 2. Notify MJ (studio owner)
-    await resend.emails.send({
-      from: 'MJ Nail Art <onboarding@resend.dev>',
-      to: [process.env.STUDIO_EMAIL || 'your-email@gmail.com'],
-      subject: `✨ New Booking: ${service}`,
-      html: `
-        <div style="font-family: Georgia, serif; max-width: 500px; padding: 32px; background: #faf9f6;">
-          <h2 style="font-weight: 300; letter-spacing: 0.1em; color: #1c1510; margin-bottom: 24px;">New Booking Request</h2>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="padding: 8px 0; color: #7d6e5f; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;">Client</td>
-                <td style="padding: 8px 0; color: #1c1510;">${clientName}</td></tr>
-            <tr><td style="padding: 8px 0; color: #7d6e5f; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;">Email</td>
-                <td style="padding: 8px 0; color: #1c1510;">${email}</td></tr>
-            ${phone ? `<tr><td style="padding: 8px 0; color: #7d6e5f; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;">Phone</td>
-                <td style="padding: 8px 0; color: #1c1510;">${phone}</td></tr>` : ''}
-            <tr><td style="padding: 8px 0; color: #7d6e5f; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;">Service</td>
-                <td style="padding: 8px 0; color: #1c1510;">${service}</td></tr>
-            <tr><td style="padding: 8px 0; color: #7d6e5f; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;">Date</td>
-                <td style="padding: 8px 0; color: #1c1510;">${formattedDate}</td></tr>
-            ${notes ? `<tr><td style="padding: 8px 0; color: #7d6e5f; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; vertical-align: top;">Notes</td>
-                <td style="padding: 8px 0; color: #1c1510;">${notes}</td></tr>` : ''}
-          </table>
-        </div>
-      `,
-    });
+    const prompt = `You are MJ, a luxury nail artist in India. Suggest exactly 2 bespoke nail design concepts based on client input. For each:
+- Give it a poetic evocative name in **bold** (e.g. **Midnight Magnolia**)
+- Specific color palette with shade names
+- Finish and technique (gel, chrome, matte, hand-painted, etc.)
+- Any art details or accents
+- Which MJ service to book with ₹ price (Gel Extensions ₹2,500+, Custom Nail Art ₹500+, Hard Gel Overlay ₹1,800+, Luxury Manicure ₹1,200)
+- One brief styling/occasion pairing tip
 
-    // 3. Confirm to client
-    await resend.emails.send({
-      from: 'MJ Nail Art <onboarding@resend.dev>',
-      to: [email],
-      subject: '✨ Your MJ Nail Art Request — Received',
-      html: `
-        <div style="font-family: Georgia, serif; max-width: 500px; padding: 32px; background: #faf9f6;">
-          <h1 style="font-weight: 300; letter-spacing: 0.1em; color: #1c1510;">Hi ${name},</h1>
-          <p style="color: #7d6e5f; line-height: 1.8;">Your booking request for <strong style="color: #1c1510;">${service}</strong> on <strong style="color: #1c1510;">${formattedDate}</strong> has been received.</p>
-          <p style="color: #7d6e5f; line-height: 1.8;">I'll reach out shortly via text or email to confirm your appointment. Can't wait to create something beautiful for you! ✨</p>
-          <p style="color: #c9a46e; font-style: italic; margin-top: 24px;">— MJ</p>
-        </div>
-      `,
-    });
+Use luxurious, poetic language. Keep each suggestion 4–5 sentences. End with a warm one-line closing.
 
-    return Response.json({ success: true });
+Client preferences:
+${userMessage}`;
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 900, temperature: 0.8 },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err?.error?.message || `Gemini error ${res.status}`);
+    }
+
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    if (!text) throw new Error('Empty response from Gemini');
+
+    return Response.json({ result: text });
 
   } catch (err) {
-    console.error('API Error:', err);
-    return Response.json({ error: err.message }, { status: 500 });
+    console.error('AI Advisor error:', err);
+    return Response.json({ error: err.message || 'Something went wrong.' }, { status: 500 });
   }
 }
