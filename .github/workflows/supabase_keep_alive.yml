@@ -1,0 +1,17 @@
+name: Keep Supabase Project Awake
+
+on:
+  schedule:
+    # Runs at 09:00 UTC every Monday and Thursday (Every 3-4 days)
+    - cron: '0 9 * * 1,4'
+  workflow_dispatch: # Allows you to manually trigger the ping from the GitHub Actions UI
+
+jobs:
+  ping_database:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Heartbeat Ping to Supabase Rest API
+        run: |
+          curl -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+          -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}"
